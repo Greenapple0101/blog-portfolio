@@ -5,89 +5,235 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevNote Blog - 백엔드 포트폴리오</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
         body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f1eb 0%, #e8ddd4 50%, #d4c4a8 100%);
             min-height: 100vh;
-            color: white;
+            color: #5a4a3a;
+            line-height: 1.6;
         }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; margin-bottom: 50px; }
-        .header h1 { font-size: 3rem; margin-bottom: 10px; }
-        .header p { font-size: 1.2rem; opacity: 0.9; }
-        .api-section { 
-            background: rgba(255,255,255,0.1); 
-            border-radius: 15px; 
-            padding: 30px; 
-            margin: 20px 0;
+        
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        
+        .header { 
+            text-align: center; 
+            margin-bottom: 50px; 
+            padding: 40px 20px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 20px;
             backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
-        .api-section h2 { margin-bottom: 20px; font-size: 1.8rem; }
-        .api-buttons { display: flex; gap: 15px; flex-wrap: wrap; }
+        
+        .header h1 { 
+            font-size: 3.5rem; 
+            margin-bottom: 15px; 
+            color: #8b7355;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header p { 
+            font-size: 1.3rem; 
+            color: #6b5b47;
+            margin-bottom: 10px;
+        }
+        
+        .api-section { 
+            background: rgba(255, 255, 255, 0.8); 
+            border-radius: 20px; 
+            padding: 40px; 
+            margin: 30px 0;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .api-section h2 { 
+            margin-bottom: 25px; 
+            font-size: 2rem; 
+            color: #8b7355;
+            font-weight: 600;
+        }
+        
+        .api-buttons { 
+            display: flex; 
+            gap: 15px; 
+            flex-wrap: wrap; 
+            margin-bottom: 25px;
+        }
+        
         .btn { 
-            padding: 12px 24px; 
-            background: #4CAF50; 
+            padding: 15px 30px; 
+            background: linear-gradient(135deg, #a68b5b 0%, #8b7355 100%);
             color: white; 
             border: none; 
-            border-radius: 8px; 
+            border-radius: 12px; 
             cursor: pointer; 
             font-size: 1rem;
+            font-weight: 500;
             transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(139, 115, 85, 0.3);
         }
-        .btn:hover { background: #45a049; transform: translateY(-2px); }
+        
+        .btn:hover { 
+            background: linear-gradient(135deg, #8b7355 0%, #6b5b47 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(139, 115, 85, 0.4);
+        }
+        
         .result { 
-            margin-top: 20px; 
-            padding: 20px; 
-            background: rgba(0,0,0,0.3); 
-            border-radius: 8px; 
-            font-family: 'Courier New', monospace;
+            margin-top: 25px; 
+            padding: 25px; 
+            background: rgba(245, 241, 235, 0.9); 
+            border-radius: 15px; 
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
             white-space: pre-wrap;
             max-height: 400px;
             overflow-y: auto;
+            border: 1px solid rgba(139, 115, 85, 0.2);
+            color: #5a4a3a;
         }
+        
         .status { 
             display: inline-block; 
-            padding: 5px 10px; 
-            border-radius: 20px; 
+            padding: 8px 16px; 
+            border-radius: 25px; 
             font-size: 0.9rem;
             margin-left: 10px;
+            font-weight: 500;
         }
-        .status.success { background: #4CAF50; }
-        .status.error { background: #f44336; }
+        
+        .status.success { 
+            background: linear-gradient(135deg, #a8c8a8 0%, #8db38d 100%);
+            color: #2d5a2d;
+        }
+        
+        .status.error { 
+            background: linear-gradient(135deg, #f4a5a5 0%, #e88a8a 100%);
+            color: #8b3a3a;
+        }
+        
         .tech-stack { 
             display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
-            gap: 20px; 
-            margin-top: 20px; 
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+            gap: 25px; 
+            margin-top: 25px; 
         }
+        
         .tech-item { 
-            background: rgba(255,255,255,0.05); 
-            padding: 15px; 
-            border-radius: 10px; 
-            border-left: 4px solid #4CAF50;
+            background: rgba(255, 255, 255, 0.6); 
+            padding: 25px; 
+            border-radius: 15px; 
+            border-left: 5px solid #a68b5b;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
         }
-        .tech-item h3 { margin-bottom: 10px; color: #4CAF50; }
+        
+        .tech-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+        
+        .tech-item h3 { 
+            margin-bottom: 15px; 
+            color: #8b7355; 
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .tech-item ul {
+            list-style: none;
+        }
+        
+        .tech-item li {
+            padding: 8px 0;
+            color: #6b5b47;
+            position: relative;
+            padding-left: 20px;
+        }
+        
+        .tech-item li:before {
+            content: "▸";
+            color: #a68b5b;
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+        
         .project-info { 
-            background: rgba(255,255,255,0.05); 
-            padding: 20px; 
-            border-radius: 10px; 
-            margin-top: 20px; 
+            background: rgba(255, 255, 255, 0.7); 
+            padding: 30px; 
+            border-radius: 15px; 
+            margin-top: 25px;
+            border: 1px solid rgba(139, 115, 85, 0.2);
         }
-        .project-info a { color: #4CAF50; text-decoration: none; }
-        .project-info a:hover { text-decoration: underline; }
+        
+        .project-info p {
+            margin-bottom: 12px;
+            color: #5a4a3a;
+        }
+        
+        .project-info a { 
+            color: #a68b5b; 
+            text-decoration: none; 
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        
+        .project-info a:hover { 
+            color: #8b7355;
+            text-decoration: underline; 
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(139, 115, 85, 0.3);
+            border-radius: 50%;
+            border-top-color: #a68b5b;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .emoji {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2.5rem; }
+            .api-section { padding: 25px; }
+            .api-buttons { justify-content: center; }
+            .btn { padding: 12px 20px; font-size: 0.9rem; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 DevNote Blog</h1>
+            <h1><span class="emoji">🚀</span>DevNote Blog</h1>
             <p>백엔드 개발자가 직접 설계하고 구현한 블로그 시스템</p>
-            <p>Node.js + Express.js + MongoDB + AWS EC2</p>
+            <p><span class="emoji">⚡</span>Node.js + Express.js + MongoDB + AWS EC2</p>
         </div>
 
         <div class="api-section">
-            <h2>📡 API 테스트</h2>
+            <h2><span class="emoji">📡</span>API 테스트</h2>
             <p>실제 EC2 서버에서 실행 중인 API를 테스트해보세요!</p>
             <div class="api-buttons">
                 <button class="btn" onclick="testHealth()">Health Check</button>
@@ -99,7 +245,7 @@
         </div>
 
         <div class="api-section">
-            <h2>🛠 기술 스택</h2>
+            <h2><span class="emoji">🛠</span>기술 스택</h2>
             <div class="tech-stack">
                 <div class="tech-item">
                     <h3>Backend</h3>
@@ -141,19 +287,19 @@
         </div>
 
         <div class="api-section">
-            <h2>📊 프로젝트 정보</h2>
+            <h2><span class="emoji">📊</span>프로젝트 정보</h2>
             <div class="project-info">
-                <p><strong>🎯 프로젝트명:</strong> DevNote Blog System</p>
-                <p><strong>📝 설명:</strong> 백엔드부터 직접 설계하고 구현한 블로그 시스템</p>
-                <p><strong>🔗 GitHub:</strong> <a href="https://github.com/Greenapple0101/blog-portfolio" target="_blank">https://github.com/Greenapple0101/blog-portfolio</a></p>
-                <p><strong>🖥️ 서버:</strong> AWS EC2 (3.34.155.126:5000)</p>
-                <p><strong>📁 파일 수:</strong> 53개 파일</p>
-                <p><strong>⚡ 상태:</strong> <span id="serverStatus" class="status success">실행 중</span></p>
+                <p><strong><span class="emoji">🎯</span>프로젝트명:</strong> DevNote Blog System</p>
+                <p><strong><span class="emoji">📝</span>설명:</strong> 백엔드부터 직접 설계하고 구현한 블로그 시스템</p>
+                <p><strong><span class="emoji">🔗</span>GitHub:</strong> <a href="https://github.com/Greenapple0101/blog-portfolio" target="_blank">https://github.com/Greenapple0101/blog-portfolio</a></p>
+                <p><strong><span class="emoji">🖥️</span>서버:</strong> AWS EC2 (3.34.155.126:5000)</p>
+                <p><strong><span class="emoji">📁</span>파일 수:</strong> 53개 파일</p>
+                <p><strong><span class="emoji">⚡</span>상태:</strong> <span id="serverStatus" class="status success">실행 중</span></p>
             </div>
         </div>
 
         <div class="api-section">
-            <h2>🎯 포트폴리오 포인트</h2>
+            <h2><span class="emoji">🎯</span>포트폴리오 포인트</h2>
             <div class="tech-stack">
                 <div class="tech-item">
                     <h3>아키텍처 설계</h3>
@@ -248,12 +394,13 @@
         }
         
         function showLoading(message) {
-            document.getElementById('result').textContent = message;
+            const result = document.getElementById('result');
+            result.innerHTML = `<div class="loading"></div>${message}`;
         }
         
         function showResult(title, data) {
             const result = document.getElementById('result');
-            result.innerHTML = `<h3>${title}</h3>\n${JSON.stringify(data, null, 2)}`;
+            result.innerHTML = `<h3 style="color: #8b7355; margin-bottom: 15px;">${title}</h3>\n${JSON.stringify(data, null, 2)}`;
         }
         
         // 페이지 로드 시 자동으로 Health Check
