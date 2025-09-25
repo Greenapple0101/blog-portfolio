@@ -1,0 +1,1150 @@
+openapi: 3.0.3
+info:
+  title: DevNote Blog API
+  description: |
+    백엔드 개발자가 직접 설계하고 구현한 블로그 시스템 API
+    
+    ## 주요 기능
+    - JWT 기반 인증/인가
+    - 게시글 CRUD 및 검색
+    - 댓글 시스템 (계층형)
+    - 통계 및 분석
+    - 파일 업로드
+    - 캐싱 및 성능 최적화
+    
+    ## 기술 스택
+    - Spring Boot 3.x
+    - Spring Security
+    - Spring Data JPA
+    - MySQL 8.0
+    - Redis
+    - Swagger/OpenAPI 3
+    
+  version: 1.0.0
+  contact:
+    name: DevNote API Support
+    email: admin@devnote.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.devnote.com
+    description: Production server
+  - url: https://staging-api.devnote.com
+    description: Staging server
+  - url: http://localhost:8080
+    description: Development server
+
+security:
+  - bearerAuth: []
+
+paths:
+  # 인증 관련 API
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: 사용자 로그인
+      description: 이메일과 비밀번호로 로그인하여 JWT 토큰을 발급받습니다.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@devnote.com
+                password:
+                  type: string
+                  format: password
+                  example: admin123
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 로그인 성공
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      refreshToken:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                      user:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /api/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: 토큰 갱신
+      description: Refresh token을 사용하여 새로운 access token을 발급받습니다.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: 토큰 갱신 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      accessToken:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+  /api/auth/profile:
+    get:
+      tags:
+        - Authentication
+      summary: 프로필 조회
+      description: 현재 로그인한 사용자의 프로필 정보를 조회합니다.
+      responses:
+        '200':
+          description: 프로필 조회 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  # 게시글 관련 API
+  /api/posts:
+    get:
+      tags:
+        - Posts
+      summary: 게시글 목록 조회
+      description: |
+        게시글 목록을 조회합니다. 다양한 필터링 옵션을 제공합니다.
+        
+        - 페이지네이션 지원
+        - 카테고리별 필터링
+        - 태그별 필터링
+        - 검색 기능
+        - 정렬 옵션
+      security: []
+      parameters:
+        - name: page
+          in: query
+          description: 페이지 번호 (0부터 시작)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          description: 페이지 크기
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: category
+          in: query
+          description: 카테고리 슬러그
+          schema:
+            type: string
+            example: tech
+        - name: tag
+          in: query
+          description: 태그 슬러그
+          schema:
+            type: string
+            example: spring-boot
+        - name: search
+          in: query
+          description: 검색 키워드
+          schema:
+            type: string
+            example: Spring Boot
+        - name: sort
+          in: query
+          description: 정렬 기준
+          schema:
+            type: string
+            enum: [latest, popular, views, likes]
+            default: latest
+      responses:
+        '200':
+          description: 게시글 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PostSummary'
+                      pageable:
+                        $ref: '#/components/schemas/Pageable'
+                      totalElements:
+                        type: integer
+                        example: 25
+                      totalPages:
+                        type: integer
+                        example: 3
+                      first:
+                        type: boolean
+                        example: true
+                      last:
+                        type: boolean
+                        example: false
+
+    post:
+      tags:
+        - Posts
+      summary: 게시글 작성
+      description: 새로운 게시글을 작성합니다. 관리자 권한이 필요합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreateRequest'
+      responses:
+        '201':
+          description: 게시글 작성 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 게시글이 성공적으로 작성되었습니다.
+                  data:
+                    $ref: '#/components/schemas/Post'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/posts/{id}:
+    get:
+      tags:
+        - Posts
+      summary: 게시글 상세 조회
+      description: 특정 게시글의 상세 정보를 조회합니다. 조회수도 증가합니다.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 게시글 ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: 게시글 조회 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Post'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - Posts
+      summary: 게시글 수정
+      description: 기존 게시글을 수정합니다. 작성자 또는 관리자만 가능합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 게시글 ID
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostUpdateRequest'
+      responses:
+        '200':
+          description: 게시글 수정 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 게시글이 성공적으로 수정되었습니다.
+                  data:
+                    $ref: '#/components/schemas/Post'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      tags:
+        - Posts
+      summary: 게시글 삭제
+      description: 게시글을 삭제합니다. 작성자 또는 관리자만 가능합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 게시글 ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: 게시글 삭제 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 게시글이 성공적으로 삭제되었습니다.
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/posts/search:
+    get:
+      tags:
+        - Posts
+      summary: 게시글 검색
+      description: |
+        게시글을 검색합니다. 제목, 내용, 태그에서 키워드를 검색합니다.
+        
+        - Full-text search 지원
+        - 하이라이팅 기능
+        - 검색 결과 순위화
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: 검색 키워드
+          schema:
+            type: string
+            example: Spring Boot
+        - name: page
+          in: query
+          description: 페이지 번호
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          description: 페이지 크기
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: 검색 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PostSearchResult'
+                      totalElements:
+                        type: integer
+                        example: 15
+                      searchTime:
+                        type: number
+                        example: 0.023
+
+  # 댓글 관련 API
+  /api/posts/{postId}/comments:
+    get:
+      tags:
+        - Comments
+      summary: 댓글 목록 조회
+      description: 특정 게시글의 댓글 목록을 조회합니다.
+      security: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          description: 게시글 ID
+          schema:
+            type: integer
+            example: 1
+        - name: page
+          in: query
+          description: 페이지 번호
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          description: 페이지 크기
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: 댓글 목록 조회 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+
+    post:
+      tags:
+        - Comments
+      summary: 댓글 작성
+      description: 새로운 댓글을 작성합니다.
+      security: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          description: 게시글 ID
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentCreateRequest'
+      responses:
+        '201':
+          description: 댓글 작성 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: 댓글이 성공적으로 작성되었습니다.
+                  data:
+                    $ref: '#/components/schemas/Comment'
+
+  # 통계 관련 API
+  /api/analytics/dashboard:
+    get:
+      tags:
+        - Analytics
+      summary: 대시보드 통계
+      description: 관리자 대시보드용 통계 데이터를 조회합니다.
+      responses:
+        '200':
+          description: 통계 조회 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/DashboardStats'
+
+  /api/analytics/visitors:
+    get:
+      tags:
+        - Analytics
+      summary: 방문자 통계
+      description: 방문자 통계 데이터를 조회합니다.
+      parameters:
+        - name: period
+          in: query
+          description: 통계 기간
+          schema:
+            type: string
+            enum: [day, week, month, year]
+            default: month
+        - name: startDate
+          in: query
+          description: 시작 날짜 (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          description: 종료 날짜 (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 방문자 통계 조회 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/VisitorStats'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: admin
+        email:
+          type: string
+          format: email
+          example: admin@devnote.com
+        role:
+          type: string
+          enum: [ADMIN, USER]
+          example: ADMIN
+        profileImage:
+          type: string
+          example: https://example.com/profile.jpg
+        bio:
+          type: string
+          example: 백엔드 개발자입니다.
+        githubUrl:
+          type: string
+          example: https://github.com/username
+        linkedinUrl:
+          type: string
+          example: https://linkedin.com/in/username
+        websiteUrl:
+          type: string
+          example: https://devnote.com
+        createdAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00Z
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: Spring Boot로 블로그 만들기
+        slug:
+          type: string
+          example: spring-boot-blog-tutorial
+        excerpt:
+          type: string
+          example: Spring Boot를 사용하여 블로그 시스템을 구축하는 방법을 알아보겠습니다.
+        content:
+          type: string
+          example: # Spring Boot 블로그 만들기...
+        featuredImage:
+          type: string
+          example: https://example.com/featured.jpg
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          example: PUBLISHED
+        viewCount:
+          type: integer
+          example: 150
+        likeCount:
+          type: integer
+          example: 25
+        commentCount:
+          type: integer
+          example: 8
+        readingTime:
+          type: integer
+          example: 5
+        isFeatured:
+          type: boolean
+          example: true
+        publishedAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00Z
+        author:
+          $ref: '#/components/schemas/User'
+        category:
+          $ref: '#/components/schemas/Category'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        createdAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00Z
+
+    PostSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: Spring Boot로 블로그 만들기
+        slug:
+          type: string
+          example: spring-boot-blog-tutorial
+        excerpt:
+          type: string
+          example: Spring Boot를 사용하여 블로그 시스템을 구축하는 방법을 알아보겠습니다.
+        featuredImage:
+          type: string
+          example: https://example.com/featured.jpg
+        viewCount:
+          type: integer
+          example: 150
+        likeCount:
+          type: integer
+          example: 25
+        commentCount:
+          type: integer
+          example: 8
+        readingTime:
+          type: integer
+          example: 5
+        publishedAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00Z
+        author:
+          type: object
+          properties:
+            username:
+              type: string
+              example: admin
+            profileImage:
+              type: string
+              example: https://example.com/profile.jpg
+        category:
+          type: object
+          properties:
+            name:
+              type: string
+              example: 기술
+            slug:
+              type: string
+              example: tech
+            color:
+              type: string
+              example: "#007bff"
+        tags:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: Spring Boot
+              slug:
+                type: string
+                example: spring-boot
+              color:
+                type: string
+                example: "#6db33f"
+
+    PostCreateRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          example: Spring Boot로 블로그 만들기
+        excerpt:
+          type: string
+          example: Spring Boot를 사용하여 블로그 시스템을 구축하는 방법을 알아보겠습니다.
+        content:
+          type: string
+          example: # Spring Boot 블로그 만들기...
+        featuredImage:
+          type: string
+          example: https://example.com/featured.jpg
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          default: DRAFT
+        categoryId:
+          type: integer
+          example: 1
+        tagIds:
+          type: array
+          items:
+            type: integer
+          example: [1, 2, 3]
+        isFeatured:
+          type: boolean
+          default: false
+
+    PostUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          example: Spring Boot로 블로그 만들기 (수정)
+        excerpt:
+          type: string
+          example: Spring Boot를 사용하여 블로그 시스템을 구축하는 방법을 알아보겠습니다.
+        content:
+          type: string
+          example: # Spring Boot 블로그 만들기...
+        featuredImage:
+          type: string
+          example: https://example.com/featured.jpg
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+        categoryId:
+          type: integer
+          example: 1
+        tagIds:
+          type: array
+          items:
+            type: integer
+          example: [1, 2, 3]
+        isFeatured:
+          type: boolean
+
+    PostSearchResult:
+      allOf:
+        - $ref: '#/components/schemas/PostSummary'
+        - type: object
+          properties:
+            highlight:
+              type: object
+              properties:
+                title:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Spring <mark>Boot</mark>로 블로그 만들기"]
+                content:
+                  type: array
+                  items:
+                    type: string
+                  example: ["<mark>Spring Boot</mark>를 사용하여..."]
+            score:
+              type: number
+              example: 0.95
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        content:
+          type: string
+          example: 정말 유용한 글이네요!
+        authorName:
+          type: string
+          example: 홍길동
+        authorEmail:
+          type: string
+          format: email
+          example: hong@example.com
+        authorWebsite:
+          type: string
+          example: https://hong.com
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, SPAM]
+          example: APPROVED
+        isAdmin:
+          type: boolean
+          example: false
+        likeCount:
+          type: integer
+          example: 5
+        parentId:
+          type: integer
+          nullable: true
+          example: null
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Comment'
+        createdAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00Z
+
+    CommentCreateRequest:
+      type: object
+      required:
+        - content
+        - authorName
+        - authorEmail
+      properties:
+        content:
+          type: string
+          example: 정말 유용한 글이네요!
+        authorName:
+          type: string
+          example: 홍길동
+        authorEmail:
+          type: string
+          format: email
+          example: hong@example.com
+        authorWebsite:
+          type: string
+          example: https://hong.com
+        parentId:
+          type: integer
+          nullable: true
+          example: null
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: 기술
+        slug:
+          type: string
+          example: tech
+        description:
+          type: string
+          example: 개발 관련 기술 글
+        color:
+          type: string
+          example: "#007bff"
+        postCount:
+          type: integer
+          example: 25
+        createdAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00Z
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Spring Boot
+        slug:
+          type: string
+          example: spring-boot
+        description:
+          type: string
+          example: Spring Boot 관련
+        color:
+          type: string
+          example: "#6db33f"
+        postCount:
+          type: integer
+          example: 15
+        createdAt:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00Z
+
+    Pageable:
+      type: object
+      properties:
+        pageNumber:
+          type: integer
+          example: 0
+        pageSize:
+          type: integer
+          example: 10
+        sort:
+          type: object
+          properties:
+            sorted:
+              type: boolean
+              example: true
+            unsorted:
+              type: boolean
+              example: false
+            empty:
+              type: boolean
+              example: false
+
+    DashboardStats:
+      type: object
+      properties:
+        totalPosts:
+          type: integer
+          example: 150
+        totalComments:
+          type: integer
+          example: 500
+        totalViews:
+          type: integer
+          example: 10000
+        totalUsers:
+          type: integer
+          example: 25
+        recentPosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostSummary'
+        popularPosts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostSummary'
+        visitorStats:
+          type: object
+          properties:
+            today:
+              type: integer
+              example: 150
+            thisWeek:
+              type: integer
+              example: 1200
+            thisMonth:
+              type: integer
+              example: 5000
+
+    VisitorStats:
+      type: object
+      properties:
+        period:
+          type: string
+          example: month
+        totalVisitors:
+          type: integer
+          example: 5000
+        uniqueVisitors:
+          type: integer
+          example: 3500
+        pageViews:
+          type: integer
+          example: 12000
+        averageSessionDuration:
+          type: number
+          example: 180.5
+        bounceRate:
+          type: number
+          example: 0.35
+        topPages:
+          type: array
+          items:
+            type: object
+            properties:
+              page:
+                type: string
+                example: /posts/spring-boot-tutorial
+              views:
+                type: integer
+                example: 500
+        deviceStats:
+          type: object
+          properties:
+            desktop:
+              type: number
+              example: 0.6
+            mobile:
+              type: number
+              example: 0.35
+            tablet:
+              type: number
+              example: 0.05
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: 오류가 발생했습니다.
+        error:
+          type: string
+          example: INTERNAL_SERVER_ERROR
+        timestamp:
+          type: string
+          format: date-time
+          example: 2024-01-01T00:00:00Z
+        path:
+          type: string
+          example: /api/posts
+
+  responses:
+    BadRequestError:
+      description: 잘못된 요청
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: 요청 데이터가 올바르지 않습니다.
+            error: BAD_REQUEST
+            timestamp: 2024-01-01T00:00:00Z
+            path: /api/posts
+
+    UnauthorizedError:
+      description: 인증 실패
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: 인증이 필요합니다.
+            error: UNAUTHORIZED
+            timestamp: 2024-01-01T00:00:00Z
+            path: /api/posts
+
+    ForbiddenError:
+      description: 권한 없음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: 접근 권한이 없습니다.
+            error: FORBIDDEN
+            timestamp: 2024-01-01T00:00:00Z
+            path: /api/posts
+
+    NotFoundError:
+      description: 리소스를 찾을 수 없음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: 요청한 리소스를 찾을 수 없습니다.
+            error: NOT_FOUND
+            timestamp: 2024-01-01T00:00:00Z
+            path: /api/posts/999
+
+    InternalServerError:
+      description: 서버 내부 오류
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: 서버 내부 오류가 발생했습니다.
+            error: INTERNAL_SERVER_ERROR
+            timestamp: 2024-01-01T00:00:00Z
+            path: /api/posts

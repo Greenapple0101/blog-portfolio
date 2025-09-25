@@ -1,0 +1,162 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_REGISTRY = 'your-registry.com'
+        IMAGE_NAME = 'devnote-blog'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        AWS_REGION = 'ap-northeast-2'
+        ECR_REPOSITORY = 'devnote-blog'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.GIT_COMMIT_SHORT = sh(
+                        script: "git rev-parse --short HEAD",
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh '''
+                    echo "Building application..."
+                    mvn clean compile
+                '''
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                sh '''
+                    echo "Running tests..."
+                    mvn test
+                '''
+            }
+            post {
+                always {
+                    publishTestResults testResultsPattern: 'target/surefire-reports/*.xml'
+                    publishCoverage adapters: [jacocoAdapter('target/site/jacoco/jacoco.xml')]
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                sh '''
+                    echo "Running quality checks..."
+                    mvn sonar:sonar \
+                        -Dsonar.projectKey=devnote-blog \
+                        -Dsonar.host.url=http://sonarqube:9000 \
+                        -Dsonar.login=${SONAR_TOKEN}
+                '''
+            }
+        }
+        
+        stage('Package') {
+            steps {
+                sh '''
+                    echo "Packaging application..."
+                    mvn package -DskipTests
+                '''
+            }
+        }
+        
+        stage('Docker Build') {
+            steps {
+                script {
+                    def image = docker.build("${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}")
+                    docker.withRegistry("https://${DOCKER_REGISTRY}", 'docker-registry-credentials') {
+                        image.push()
+                        image.push("latest")
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy to Staging') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                sh '''
+                    echo "Deploying to staging..."
+                    kubectl set image deployment/devnote-blog-staging \
+                        devnote-blog=${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
+                        --namespace=staging
+                '''
+            }
+        }
+        
+        stage('Integration Tests') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                sh '''
+                    echo "Running integration tests..."
+                    mvn verify -Pintegration-tests
+                '''
+            }
+        }
+        
+        stage('Deploy to Production') {
+            when {
+                branch 'main'
+            }
+            steps {
+                input message: 'Deploy to production?', ok: 'Deploy'
+                sh '''
+                    echo "Deploying to production..."
+                    kubectl set image deployment/devnote-blog-prod \
+                        devnote-blog=${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
+                        --namespace=production
+                '''
+            }
+        }
+        
+        stage('Health Check') {
+            steps {
+                sh '''
+                    echo "Performing health check..."
+                    sleep 30
+                    curl -f http://devnote-blog:8080/api/actuator/health || exit 1
+                '''
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            slackSend(
+                channel: '#deployments',
+                color: 'good',
+                message: "✅ Deployment successful!\n" +
+                        "Project: ${env.JOB_NAME}\n" +
+                        "Build: ${env.BUILD_NUMBER}\n" +
+                        "Commit: ${env.GIT_COMMIT_SHORT}\n" +
+                        "Branch: ${env.BRANCH_NAME}"
+            )
+        }
+        failure {
+            slackSend(
+                channel: '#deployments',
+                color: 'danger',
+                message: "❌ Deployment failed!\n" +
+                        "Project: ${env.JOB_NAME}\n" +
+                        "Build: ${env.BUILD_NUMBER}\n" +
+                        "Commit: ${env.GIT_COMMIT_SHORT}\n" +
+                        "Branch: ${env.BRANCH_NAME}\n" +
+                        "Log: ${env.BUILD_URL}console"
+            )
+        }
+    }
+}
